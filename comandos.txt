@@ -1,0 +1,11 @@
+django-admin startproject langchain_assistant
+cd langchain_assistant
+python manage.py startapp agent
+pip install django djangorestframework python-dotenv requests langchain langchain-google-genai
+python manage.py runserver
+
+http://127.0.0.1:8000/api/query/
+
+{
+  "query": "puedes descagar el reporte fisicoquímico AMFQ01"
+}
