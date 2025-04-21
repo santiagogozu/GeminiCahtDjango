@@ -16,9 +16,7 @@ load_dotenv()
 def get_physicochemical_report(report_id: str) -> dict:
     base_url = os.getenv("PHYSICOCHEMICAL_API")
     if not base_url:
-        raise ValueError(
-            f"La variable de entorno 'PHYSICOCHEMICAL_API' no está definida."
-        )
+        raise ValueError(f"La variable de entorno '{base_url}' no está definida.")
     if not report_id.strip():
         return "Entrada vacía. Por favor, proporcione el ID de un reporte."
     report_id = report_id.strip().strip('"').strip("'").upper()
@@ -34,16 +32,22 @@ def get_physicochemical_report(report_id: str) -> dict:
         raise ValueError(
             f"No se pudo encontrar el reporte fisicoquímico con el código {report_id}. Error: {e}"
         )
+    except ValueError as e:
+        return str(e)
 
 
 def get_document(titulo: Optional[str] = None, año: Optional[int] = None) -> dict:
     base_url = os.getenv("DOCUMENT_API")
     if not base_url:
-        raise ValueError(f"La variable de entorno 'DOCUMENT_API' no está definida.")
+        raise ValueError(f"La variable de entorno '{base_url}' no está definida.")
 
+    params = {}
+    if titulo:
+        titulo = titulo.strip().strip('"').strip("'")
     params = {"search": titulo} if titulo else {}
+
     if año:
-        params["search"] = f"{titulo} {año}" if titulo else str(año)
+        params["search"] = año
 
     try:
         response = requests.get(base_url, params=params)
@@ -57,12 +61,10 @@ def get_document(titulo: Optional[str] = None, año: Optional[int] = None) -> di
         return f"Error al buscar documentos: {e}"
 
 
-def get_hydrobiological_report(report_id: Optional[str] = None) -> dict:
+def get_hydrobiological_report(report_id: Optional[str] = None) -> str:
     base_url = os.getenv("HYDROBIOLOGICAL_API")
     if not base_url:
-        raise ValueError(
-            f"La variable de entorno 'HYDROBIOLOGICAL_API' no está definida."
-        )
+        raise ValueError(f"La variable de entorno '{base_url}' no está definida.")
     if not report_id:
         return "Entrada vacía. Por favor, proporcione el nombre de un reporte."
     report_id = report_id.strip().strip('"').strip("'").upper()
@@ -74,7 +76,8 @@ def get_hydrobiological_report(report_id: Optional[str] = None) -> dict:
             "report_id": report_id,
             "url": url,
         }
-    except requests.exceptions.RequestException:
+
+    except requests.exceptions.RequestException as e:
         raise ValueError(
             f"No se pudo encontrar el reporte hidrobiológico con el código {report_id}."
         )
@@ -110,7 +113,7 @@ get_hydrobiological_report_tool = StructuredTool.from_function(
 get_todays_date_tool = StructuredTool.from_function(
     func=get_todays_date,
     name="obtener_fecha_hoy",
-    description="Devuelve la fecha y el día actual para tener como base para cálculos de tiempo.",
+    description="Devuelve la fecha y el día actual para tener como base para calculos de tiempo.",
 )
 
 tools = [
@@ -120,13 +123,6 @@ tools = [
     get_todays_date_tool,
 ]
 
-tool_list = {
-    "descargar_reporte_hidrobiologico": get_hydrobiological_report_tool,
-    "buscar_documentos_func": get_document_tool,
-    "descargar_reporte_fisicoquimicos": get_physicochemical_report_tool,
-    "obtener_fecha_hoy": get_todays_date_tool,
-}
-
 llm = ChatGoogleGenerativeAI(
     model="gemini-1.5-pro-latest",
     api_key=os.getenv("GENAI_API_KEY"),
@@ -135,9 +131,17 @@ llm = ChatGoogleGenerativeAI(
 
 llm_with_tools = llm.bind_tools(tools)
 
+tool_list = {
+    "descargar_reporte_hidrobiologico": get_hydrobiological_report_tool,
+    "buscar_documentos_func": get_document_tool,
+    "descargar_reporte_fisicoquimicos": get_physicochemical_report_tool,
+    "obtener_fecha_hoy": get_todays_date_tool,
+}
+
 system_message = SystemMessage(
-    content="Eres un asistente útil que siempre responde en español, pero nunca le dice al usuario qué funciones se ejecutan."
+    content="Eres un asistente útil que siempre responde en español, sin mencionar que se usan herramientas. Siempre incluye los enlaces cuando estén disponibles."
 )
+
 
 # === Función principal para usar desde la API ===
 
@@ -146,13 +150,15 @@ def process_query(query: str) -> str:
     try:
         messages = [system_message, HumanMessage(content=query)]
 
-        for _ in range(3):
+        for _ in range(3):  # máximo 3 ciclos de invocación
             ai_message = llm_with_tools.invoke(messages)
+            print("Mensaje recibido:", ai_message)
             messages.append(ai_message)
 
             if not ai_message.tool_calls:
                 return ai_message.content
 
+            # Ejecutar herramientas
             for tool_call in ai_message.tool_calls:
                 tool_name = tool_call["name"].lower()
                 tool_args = tool_call["args"]
@@ -161,13 +167,51 @@ def process_query(query: str) -> str:
                 selected_tool = tool_list.get(tool_name)
                 if selected_tool:
                     tool_output = selected_tool.invoke(tool_args)
+                    print(f"[{tool_name}] output:", tool_output)
                     messages.append(
-                        ToolMessage(content=tool_output, tool_call_id=tool_id)
+                        ToolMessage(content=str(tool_output), tool_call_id=tool_id)
                     )
                 else:
                     return f"⚠️ Herramienta no encontrada: {tool_name}"
 
-        return "⚠️ Se alcanzó el límite de iteraciones sin obtener respuesta final."
+        # # 🔁 Generar mensaje final después de que se procesan los tools
+        # final_message = llm_with_tools.invoke(messages)
+        # print("Mensaje final generado:", final_message)
+        # return final_message.content
 
     except Exception as e:
         return f"Error al ejecutar el agente: {str(e)}"
+
+    # try:
+    #     messages = [system_message, HumanMessage(content=query)]
+
+    #     for _ in range(3):  # máximo 3 ciclos de invocación
+    #         ai_message = llm_with_tools.invoke(messages)
+    #         print(ai_message)
+    #         messages.append(ai_message)
+
+    #         if not ai_message.tool_calls:
+    #             # Si el modelo ya generó respuesta final, la imprimimos
+    #             print(ai_message.content)
+    #             break
+
+    #         # Ejecutamos cada herramienta invocada
+    #         for tool_call in ai_message.tool_calls:
+    #             tool_name = tool_call["name"].lower()
+    #             tool_args = tool_call["args"]
+    #             tool_id = tool_call["id"]
+
+    #             selected_tool = tool_list.get(tool_name)
+    #             if selected_tool:
+    #                 tool_output = selected_tool.invoke(tool_args)
+    #                 messages.append(
+    #                     ToolMessage(content=tool_output, tool_call_id=tool_id)
+    #                 )
+    #             else:
+    #                 print(f"⚠️ Herramienta no encontrada: {tool_name}")
+
+    #     else:
+    #         print("⚠️ Se alcanzó el límite de iteraciones sin obtener respuesta final.")
+
+    # except Exception as e:
+    #     print(f"Error al ejecutar el agente: {str(e)}")
