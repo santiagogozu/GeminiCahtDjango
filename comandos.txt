@@ -18,3 +18,11 @@ mandar como mensaje desde whatsapp "join forty-shake"
 
 para correr los test 
 pytest agent/tests/
+
+
+Instalar todos los paqeuetes
+pip install -r requirements.txt
+
+Ejecutar Docker
+docker-compose build
+docker-compose up
