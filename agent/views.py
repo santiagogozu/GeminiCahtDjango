@@ -7,9 +7,12 @@ from .langchain_agent import process_query
 from twilio.twiml.messaging_response import MessagingResponse
 import os
 import logging
-import requests  # ✅ Faltaba esta importación
+import requests
 
 from django.http import HttpResponse
+
+from django.conf import settings
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -27,57 +30,102 @@ class LangchainAgentView(APIView):
             )
 
 
+# class WhatsAppWebhookView(APIView):
+#     def post(self, request):
+#         from_number = request.data.get("From", "")
+#         body = request.data.get("Body", "").strip()
+
+#         logger.info(f"Mensaje de WhatsApp recibido: {from_number} - {body}")
+#         print(f"Mensaje de WhatsApp recibido: {from_number} - {body}")
+
+#         query_data = {"query": body}
+#         query_url = (
+#             "http://localhost:8000/query/"  # Asegúrate de que tenga la barra final
+#         )
+
+#         try:
+#             response = requests.post(query_url, json=query_data)
+#             print(f"Respuesta cruda de /query/: {response.text}")
+
+#             try:
+#                 response_data = response.json()
+#                 if response.status_code == 200:
+#                     result = response_data.get(
+#                         "response", "No se pudo obtener respuesta."
+#                     )
+#                 else:
+#                     result = "Error al procesar la consulta."
+#             except Exception as parse_error:
+#                 result = f"Error al interpretar respuesta JSON: {parse_error}"
+
+#         except Exception as e:
+#             result = f"Error al contactar el servidor de consultas: {str(e)}"
+
+#         # Crear y devolver la respuesta XML que Twilio espera
+#         twiml_response = MessagingResponse()
+#         twiml_response.message(result)
+
+#         print("Respuesta que se enviará a Twilio:", str(twiml_response))
+
+
+#         return HttpResponse(str(twiml_response), content_type="application/xml")
 class WhatsAppWebhookView(APIView):
     def post(self, request):
         from_number = request.data.get("From", "")
         body = request.data.get("Body", "").strip()
+        num_media = int(request.data.get("NumMedia", 0))
 
         logger.info(f"Mensaje de WhatsApp recibido: {from_number} - {body}")
         print(f"Mensaje de WhatsApp recibido: {from_number} - {body}")
 
-        query_data = {"query": body}
-        query_url = (
-            "http://localhost:8000/query/"  # Asegúrate de que tenga la barra final
-        )
+        twiml_response = MessagingResponse()
 
-        try:
-            response = requests.post(query_url, json=query_data)
-            print(f"Respuesta cruda de /query/: {response.text}")
+        if num_media > 0:
+            media_url = request.data.get("MediaUrl0")
+            content_type = request.data.get("MediaContentType0")
+
+            # Ruta donde guardar la imagen
+            media_dir = os.path.join(settings.BASE_DIR, "img")
+            os.makedirs(media_dir, exist_ok=True)
+
+            # Nombre del archivo
+            ext = content_type.split("/")[-1]
+            file_name = f"{from_number.replace(':', '_')}_media.{ext}"
+            file_path = os.path.join(media_dir, file_name)
 
             try:
-                response_data = response.json()
-                if response.status_code == 200:
-                    result = response_data.get(
-                        "response", "No se pudo obtener respuesta."
-                    )
-                else:
-                    result = "Error al procesar la consulta."
-            except Exception as parse_error:
-                result = f"Error al interpretar respuesta JSON: {parse_error}"
+                img_data = requests.get(media_url).content
+                with open(file_path, "wb") as f:
+                    f.write(img_data)
+                logger.info(f"Imagen guardada en {file_path}")
+                twiml_response.message("Procesando imagen. Gracias por enviarla 📷")
+            except Exception as e:
+                logger.error(f"Error al guardar imagen: {e}")
+                twiml_response.message("Error al guardar la imagen.")
+        else:
+            # Lógica para texto
+            query_data = {"query": body}
+            query_url = "http://localhost:8000/query/"
 
-        except Exception as e:
-            result = f"Error al contactar el servidor de consultas: {str(e)}"
+            try:
+                response = requests.post(query_url, json=query_data)
+                print(f"Respuesta cruda de /query/: {response.text}")
 
-        # Crear y devolver la respuesta XML que Twilio espera
-        twiml_response = MessagingResponse()
-        twiml_response.message(result)
+                try:
+                    response_data = response.json()
+                    if response.status_code == 200:
+                        result = response_data.get(
+                            "response", "No se pudo obtener respuesta."
+                        )
+                    else:
+                        result = "Error al procesar la consulta."
+                except Exception as parse_error:
+                    result = f"Error al interpretar respuesta JSON: {parse_error}"
+
+            except Exception as e:
+                result = f"Error al contactar el servidor de consultas: {str(e)}"
+
+            twiml_response.message(result)
 
         print("Respuesta que se enviará a Twilio:", str(twiml_response))
-
         return HttpResponse(str(twiml_response), content_type="application/xml")
-
-
-# class WhatsAppWebhookView(APIView):
-#   def post(self, request):
-#       from_number = request.data.get('From', '')
-#      body = request.data.get('Body', '').strip()
-#
-#       logger.info(f"Mensaje de WhatsApp recibido: {from_number} - {body}")
-#
-#       respuesta = f"Hola 👋, recibimos tu mensaje: '{body}'"
-#
-#       twiml_response = MessagingResponse()
-#      twiml_response.message(respuesta)
-
-#     return HttpResponse(str(twiml_response), content_type='application/xml')
-#

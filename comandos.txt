@@ -2,7 +2,6 @@ django-admin startproject langchain_assistant
 cd langchain_assistant
 python manage.py startapp agent
 pip install django djangorestframework python-dotenv requests langchain langchain-google-genai
-python manage.py runserver
 
 pip install pytest pytest-django
 
@@ -12,9 +11,14 @@ http://127.0.0.1:8000/api/query/
   "query": "puedes descagar el reporte fisicoquímico AMFQ01"
 }
 
+Ejecutar de manera local
+python manage.py runserver
+
+Ejecutar comando para generar link de manera global
 ngrok http 8000
 
-mandar como mensaje desde whatsapp "join forty-shake"
+mandar como mensaje desde whatsapp 
+"join forty-shake"
 
 para correr los test 
 pytest agent/tests/
