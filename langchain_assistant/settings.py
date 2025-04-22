@@ -28,7 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "fc12-181-61-245-75.ngrok-free.app",  # <-- tu dominio ngrok actual
+    "48e4-186-121-43-83.ngrok-free.app",  # <-- tu dominio ngrok actual
 ]
 
 

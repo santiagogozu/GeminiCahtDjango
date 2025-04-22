@@ -23,6 +23,7 @@ def get_physicochemical_report(report_id: str) -> dict:
     try:
         url = f"{base_url}/{report_id}/reporte"
         response = requests.get(url)
+        print(response)
         response.raise_for_status()
         return {
             "report_id": report_id,
@@ -152,7 +153,7 @@ def process_query(query: str) -> str:
 
         for _ in range(3):  # máximo 3 ciclos de invocación
             ai_message = llm_with_tools.invoke(messages)
-            print("Mensaje recibido:", ai_message)
+            # print("Mensaje recibido:", ai_message)
             messages.append(ai_message)
 
             if not ai_message.tool_calls:
@@ -167,7 +168,7 @@ def process_query(query: str) -> str:
                 selected_tool = tool_list.get(tool_name)
                 if selected_tool:
                     tool_output = selected_tool.invoke(tool_args)
-                    print(f"[{tool_name}] output:", tool_output)
+                    # print(f"[{tool_name}] output:", tool_output)
                     messages.append(
                         ToolMessage(content=str(tool_output), tool_call_id=tool_id)
                     )
@@ -175,43 +176,9 @@ def process_query(query: str) -> str:
                     return f"⚠️ Herramienta no encontrada: {tool_name}"
 
         # # 🔁 Generar mensaje final después de que se procesan los tools
-        # final_message = llm_with_tools.invoke(messages)
-        # print("Mensaje final generado:", final_message)
-        # return final_message.content
+        final_message = llm_with_tools.invoke(messages)
+        print("Mensaje final generado:", final_message)
+        return final_message.content
 
     except Exception as e:
         return f"Error al ejecutar el agente: {str(e)}"
-
-    # try:
-    #     messages = [system_message, HumanMessage(content=query)]
-
-    #     for _ in range(3):  # máximo 3 ciclos de invocación
-    #         ai_message = llm_with_tools.invoke(messages)
-    #         print(ai_message)
-    #         messages.append(ai_message)
-
-    #         if not ai_message.tool_calls:
-    #             # Si el modelo ya generó respuesta final, la imprimimos
-    #             print(ai_message.content)
-    #             break
-
-    #         # Ejecutamos cada herramienta invocada
-    #         for tool_call in ai_message.tool_calls:
-    #             tool_name = tool_call["name"].lower()
-    #             tool_args = tool_call["args"]
-    #             tool_id = tool_call["id"]
-
-    #             selected_tool = tool_list.get(tool_name)
-    #             if selected_tool:
-    #                 tool_output = selected_tool.invoke(tool_args)
-    #                 messages.append(
-    #                     ToolMessage(content=tool_output, tool_call_id=tool_id)
-    #                 )
-    #             else:
-    #                 print(f"⚠️ Herramienta no encontrada: {tool_name}")
-
-    #     else:
-    #         print("⚠️ Se alcanzó el límite de iteraciones sin obtener respuesta final.")
-
-    # except Exception as e:
-    #     print(f"Error al ejecutar el agente: {str(e)}")

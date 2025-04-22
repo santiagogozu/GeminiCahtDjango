@@ -4,6 +4,8 @@ python manage.py startapp agent
 pip install django djangorestframework python-dotenv requests langchain langchain-google-genai
 python manage.py runserver
 
+pip install pytest pytest-django
+
 http://127.0.0.1:8000/api/query/
 
 {
@@ -13,3 +15,6 @@ http://127.0.0.1:8000/api/query/
 ngrok http 8000
 
 mandar como mensaje desde whatsapp "join forty-shake"
+
+para correr los test 
+pytest agent/tests/
