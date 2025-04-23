@@ -12,10 +12,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+load_dotenv(BASE_DIR / ".env")  # carga las vars de tu .env
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -23,13 +24,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-7oq@nv&ims=ee1uqco%mfh68f&nioibqp*=5e8#dz&0@0w3u=9"
 
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+# Al usarlo para enviar mensajes, Twilio espera el prefijo "whatsapp:"
+TWILIO_PHONE_NUMBER = f"whatsapp:{os.getenv('TWILIO_PHONE_NUMBER')}"
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "48e4-186-121-43-83.ngrok-free.app",  # <-- tu dominio ngrok actual
+    "3381-191-104-10-34.ngrok-free.app",  # <-- tu dominio ngrok actual
 ]
 
 

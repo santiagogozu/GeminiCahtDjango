@@ -11,6 +11,7 @@ import requests
 
 from django.http import HttpResponse
 
+
 from django.conf import settings
 import logging
 
@@ -67,8 +68,9 @@ class LangchainAgentView(APIView):
 
 #         print("Respuesta que se enviará a Twilio:", str(twiml_response))
 
-
 #         return HttpResponse(str(twiml_response), content_type="application/xml")
+
+
 class WhatsAppWebhookView(APIView):
     def post(self, request):
         from_number = request.data.get("From", "")
@@ -92,16 +94,42 @@ class WhatsAppWebhookView(APIView):
             ext = content_type.split("/")[-1]
             file_name = f"{from_number.replace(':', '_')}_media.{ext}"
             file_path = os.path.join(media_dir, file_name)
+        try:
+            # 1) Imprime la URL y el tipo de medio que estás descargando
+            logger.info(
+                f"Descargando media desde: {media_url} (Content-Type: {content_type})"
+            )
 
-            try:
-                img_data = requests.get(media_url).content
-                with open(file_path, "wb") as f:
-                    f.write(img_data)
-                logger.info(f"Imagen guardada en {file_path}")
-                twiml_response.message("Procesando imagen. Gracias por enviarla 📷")
-            except Exception as e:
-                logger.error(f"Error al guardar imagen: {e}")
-                twiml_response.message("Error al guardar la imagen.")
+            # 2) Haz la petición con autenticación
+            img_resp = requests.get(
+                media_url,
+                auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN),
+                timeout=10,
+            )
+
+            # 3) Log del status y headers
+            logger.info(f"Twilio respondió con status {img_resp.status_code}")
+            logger.debug(f"Headers de respuesta: {img_resp.headers}")
+
+            # 4) Si no es 200, vuelca el body como texto para ver el XML o error
+            if img_resp.status_code != 200:
+                logger.error(f"Error al descargar media: {img_resp.text}")
+                raise Exception(f"Descarga fallida con status {img_resp.status_code}")
+
+            # 5) Guarda el contenido
+            img_data = img_resp.content
+            with open(file_path, "wb") as f:
+                f.write(img_data)
+
+            logger.info(f"Imagen guardada en {file_path}")
+            twiml_response.message("Procesando imagen. Gracias por enviarla 📷")
+
+        except Exception as e:
+            # 6) Ahora el log incluirá exactamente qué pasó
+            logger.exception("Error al guardar imagen")
+            twiml_response.message(
+                "Error al guardar la imagen. Revisa los logs para más detalles."
+            )
         else:
             # Lógica para texto
             query_data = {"query": body}
